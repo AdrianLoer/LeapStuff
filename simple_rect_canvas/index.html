@@ -1,0 +1,77 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+    </style>
+    <script src="../libs/jquery-2.1.4.min.js"></script>
+    <script src="../libs/leap-0.6.4.js"></script>
+    <script src="../libs/leap-plugins-0.1.11.js"></script>
+    <script src="../libs/fabric.js-1.5.0/dist/fabric.js"></script>
+  </head>
+  <body>
+    <canvas id="canvas"</canvas>
+    <script>
+      var canvas = new fabric.StaticCanvas('canvas');
+      canvas.setWidth(window.innerWidth);
+      canvas.setHeight(window.innerHeight);
+
+      var rect = new fabric.Rect({ top: 100, left: 100, width: 50, height: 50, fill: '#f55' });
+
+      canvas.add(rect);
+
+      var newPositions;
+      // setTimeout(function() {
+      //   rect.set({
+      //     top: 
+      //   })
+      // })
+
+      function moveRect(position) {
+        // newPositions = {
+        //   left: position[0] - window.innerWidth  / 2,
+        //   top: position[1] - window.innerHeight  / 2
+        // }; 
+        newPositions = {
+          left: position[0],
+          top: position[1]
+        };
+        console.log(newPositions);
+        rect.set(newPositions);
+        canvas.renderAll();
+      }
+
+      var controller = new Leap.Controller({enableGestures: true})
+        .use('screenPosition')
+        .setBackground(true)
+        .connect()
+        .on('frame', function(frame){
+          // Try making some circles
+          if (frame.hands[0]) {
+            console.log(frame.hands[0].screenPosition());
+            moveRect(frame.hands[0].screenPosition());
+          }
+          // hand: function(hand){
+          //   // console.log( hand.screenPosition());
+          //   moveRect(hand.screenPosition());
+          // }
+        })
+
+      // Leap.loop({
+
+      //   hand: function(hand){
+      //     // console.log( hand.screenPosition());
+      //     moveRect(hand.screenPosition());
+      //   }
+
+      // }).use('screenPosition', {scale: 1});
+
+
+
+
+    </script>
+  </body>
+</html>      

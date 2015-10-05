@@ -1,0 +1,43 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+    </style>
+    <script src="../libs/jquery-2.1.4.min.js"></script>
+    <script src="../libs/leap-0.6.4.js"></script>
+    <script src="../libs/leap-plugins-0.1.11.js"></script>
+    <script src="../LeapTrainer/leaptrainer.js"></script>
+    <script src="../libs/fabric.js-1.5.0/dist/fabric.js"></script>
+  </head>
+  <body>
+    <canvas id="canvas"</canvas>
+    <script>
+
+    var state = "normal";
+
+      window.onkeypress = function(e) {
+        if (e.charCode == 32) { //spacebar
+          if (state == "normal") {
+            state = "train";
+          }else{
+            state = "normal";
+          }
+        }
+      };
+
+      var controller = new Leap.Controller({enableGestures: false});
+      controller.loop(function(frame) {
+
+        if (state === "train") {
+          console.log(frame);
+        }
+
+      });
+
+    </script>
+  </body>
+</html>      
