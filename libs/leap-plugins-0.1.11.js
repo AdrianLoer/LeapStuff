@@ -235,6 +235,7 @@
     };
 
     HandMesh.prototype.formTo = function(hand) {
+      console.log("formTo ", hand);
       var bone, finger, i, j, mesh, _i;
       for (i = _i = 0; _i < 5; i = ++_i) {
         finger = hand.fingers[i];
@@ -248,6 +249,9 @@
           bone = finger.bones[3 - (j / 2)];
           mesh = this.fingerMeshes[i][j];
           mesh.position.fromArray(bone.nextJoint);
+          if (i === 3 && j == 8) {
+            mesh.material.color.setHex(0xdddddd);
+          }
           ++j;
           mesh = this.fingerMeshes[i][j];
           mesh.position.fromArray(bone.center());

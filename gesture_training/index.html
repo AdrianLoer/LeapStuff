@@ -7,6 +7,7 @@
         padding: 0px;
       }
     </style>
+    <script src="../libs/three.js"></script>
     <script src="../libs/jquery-2.1.4.min.js"></script>
     <script src="../libs/leap-0.6.4.js"></script>
     <script src="../libs/leap-plugins-0.1.11.js"></script>
@@ -14,7 +15,10 @@
     <script src="../libs/fabric.js-1.5.0/dist/fabric.js"></script>
   </head>
   <body>
-    <canvas id="canvas"</canvas>
+    <!-- <canvas id="canvas"></canvas> -->
+    <h1>Finger</h1>
+    <div id="finger" style="position: absolute"></div>
+  </body>
     <script>
 
     var state = "normal";
@@ -29,15 +33,59 @@
         }
       };
 
-      var controller = new Leap.Controller({enableGestures: false});
+
+      var controller = new Leap.Controller({enableGestures: false}).setBackground(true);
+
+      var fingerOutput = "";
+
       controller.loop(function(frame) {
 
         if (state === "train") {
-          console.log(frame);
+          // console.log(frame.fingers);
+          // console.log(frame.fingers[0].dipPosition);
+
+          for (var i = 0; i < frame.fingers.length; i++) {
+            fingerOutput = fingerOutput + "<p>";
+            for (var j = 0; j < frame.fingers[i].dipPosition.length; j++) {
+              fingerOutput = fingerOutput + frame.fingers[i].dipPosition[j] + "   ";
+              
+            }
+              fingerOutput = fingerOutput + "</p>";
+          }
+
+          document.getElementById("finger").innerHTML = fingerOutput;
+
+          fingerOutput = "";
+
+          // moveCube(frame.hands[0].screenPosition());
+          moveCube();
+
+          mesh.rotation.x += 0.01;
+          mesh.rotation.y += 0.02;
+
         }
 
+      })
+      .use('screenPosition', {scale: 1})
+      .use('boneHand', {
+        targetEl: document.body,
+        arm: true
       });
 
+      var geometry = new THREE.CubeGeometry(200, 200, 200);
+      var material = new THREE.MeshLambertMaterial({});
+
+      var mesh = new THREE.Mesh(geometry, material);
+      controller.plugins.boneHand.scene.add(mesh);
+
+      function moveCube(position) {
+        console.log("position: ", position);
+        console.log(mesh);
+        mesh.position.x = 100;
+        mesh.position.y = 100;
+        // mesh.position.x  = position[0];
+        // mesh.position.y = position[1];
+      }
+
     </script>
-  </body>
 </html>      
