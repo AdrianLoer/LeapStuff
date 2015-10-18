@@ -7,6 +7,7 @@
         padding: 0px;
       }
     </style>
+    <script src="../libs/mathUtility.js"></script>
     <script src="../libs/three.js"></script>
     <script src="../libs/jquery-2.1.4.min.js"></script>
     <script src="../libs/leap-0.6.4.js"></script>
@@ -20,6 +21,9 @@
     <div id="finger" style="position: absolute"></div>
   </body>
     <script>
+
+    window.TO_RAD = Math.PI / 180;
+    window.TO_DEG = 1 / TO_RAD;
 
     var state = "normal";
 
@@ -40,7 +44,8 @@
 
       controller.loop(function(frame) {
 
-        if (state === "train") {
+        if (state === "train" && frame !== undefined) {
+          // console.log(frame);
           // console.log(frame.fingers);
           // console.log(frame.fingers[0].dipPosition);
 
@@ -53,15 +58,52 @@
               fingerOutput = fingerOutput + "</p>";
           }
 
+          if (frame.hands.length > 0) {
+
+            fingerOutput = fingerOutput + "<p> roll: " + frame.hands[0].roll() * TO_DEG + "</p>";
+            fingerOutput = fingerOutput + "<p> pitch: " + frame.hands[0].pitch() * TO_DEG + "</p>";
+            fingerOutput = fingerOutput + "<p> yaw: " + frame.hands[0].yaw() * TO_DEG + "</p>";
+
+          }
+
+
+          // moveCube(frame.hands[0].screenPosition());
+          // moveCube();
+
+          // mesh.rotation.x += 0.01;
+          // mesh.rotation.y += 0.02;
+
+          // bone center
+          if (frame.hands.length > 0) {
+            // moveCube(frame.hands[0].fingers[0].bones[2].center());
+            // green circle (= pointables?)
+            // moveCube(frame.hands[0].fingers[0].carpPosition);
+            // moveCube(frame.hands[0].fingers[0].mcpPosition);
+            // moveCube(frame.hands[0].fingers[0].pipPosition);
+            // moveCube(frame.hands[0].fingers[0].dipPosition);
+            // moveCube(frame.hands[0].fingers[0].tipPosition);
+
+            addMarker("blue", frame.hands[0].fingers[1].tipPosition);
+            addMarker("red", frame.hands[0].fingers[1].carpPosition);
+
+            fingerOutput = fingerOutput + "<p> Angle vec3  " + mUtil.vec3angle(frame.hands[0].fingers[1].tipPosition, frame.hands[0].fingers[1].carpPosition) + "</p>";
+            fingerOutput = fingerOutput + "<p> Angle THREE:  " + helperMarker.blue.position.angleTo(helperMarker.red.position) * mUtil.TO_DEG + "</p>";
+
+            printToScreen("Angle vec2: " + mUtil.vec2angle(v3asv2(frame.hands[0].fingers[1].tipPosition), v3asv2(frame.hands[0].fingers[1].carpPosition)));
+
+
+            fingerOutput = fingerOutput + "<p> angle 2d:  " + Math.atan(helperMarker.blue.position.y - helperMarker.red.position.y, helperMarker.blue.position.x - helperMarker.red.position.x) * (180 / Math.PI) + "</p>";
+
+            printToScreen("testMeshOne/Two angle 3D: " + mUtil.vec3angle([testMeshOne.position.x, testMeshOne.position.y, testMeshOne.position.z], [testMeshTwo.position.x, testMeshTwo.position.y, testMeshTwo.position.z]));
+
+            printToScreen("testMeshOne/Two angle 2D: " + mUtil.vec2angle([testMeshOne.position.x, testMeshOne.position.y], [testMeshTwo.position.x, testMeshTwo.position.y]));
+
+
+          }
+
           document.getElementById("finger").innerHTML = fingerOutput;
 
           fingerOutput = "";
-
-          // moveCube(frame.hands[0].screenPosition());
-          moveCube();
-
-          mesh.rotation.x += 0.01;
-          mesh.rotation.y += 0.02;
 
         }
 
@@ -72,20 +114,50 @@
         arm: true
       });
 
-      var geometry = new THREE.CubeGeometry(200, 200, 200);
+      var geometry = new THREE.CubeGeometry(10, 10, 10);
       var material = new THREE.MeshLambertMaterial({});
 
-      var mesh = new THREE.Mesh(geometry, material);
-      controller.plugins.boneHand.scene.add(mesh);
+      var testMeshOne = new THREE.Mesh(geometry, material);
+      var testMeshTwo = new THREE.Mesh(geometry, material);
+      controller.plugins.boneHand.scene.add(testMeshOne);
+      controller.plugins.boneHand.scene.add(testMeshTwo);
+
+      testMeshOne.position.fromArray([100, 100, 0]);
+      testMeshTwo.position.fromArray([200, 200, 0]);
+
 
       function moveCube(position) {
         console.log("position: ", position);
-        console.log(mesh);
-        mesh.position.x = 100;
-        mesh.position.y = 100;
-        // mesh.position.x  = position[0];
-        // mesh.position.y = position[1];
+        mesh.position.fromArray(position);
+        // mUtil.vec3angle();
       }
+
+      var blueMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0x091DFF}));
+      var redMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFF0007}));
+      var yellowMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFFF200}));
+      controller.plugins.boneHand.scene.add(blueMesh);
+      controller.plugins.boneHand.scene.add(redMesh);
+      controller.plugins.boneHand.scene.add(yellowMesh);
+
+      var helperMarker = {
+        blue: blueMesh,
+        red: redMesh,
+        yellow: yellowMesh
+      }
+
+      function addMarker(style, position) {
+        helperMarker[style].position.fromArray(position);
+        fingerOutput = fingerOutput + "<p>" + style.toUpperCase() + ":  " + position + "</p>";
+      }
+
+      function printToScreen(msg) {
+        fingerOutput = fingerOutput + "<p>" + msg + "</p>";
+      }
+
+      function v3asv2(vector) {
+        return [vector[0], vector[1]];
+      }
+
 
     </script>
 </html>      

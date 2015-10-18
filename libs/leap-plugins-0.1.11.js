@@ -235,7 +235,7 @@
     };
 
     HandMesh.prototype.formTo = function(hand) {
-      console.log("formTo ", hand);
+      // console.log("formTo ", hand);
       var bone, finger, i, j, mesh, _i;
       for (i = _i = 0; _i < 5; i = ++_i) {
         finger = hand.fingers[i];
@@ -244,18 +244,31 @@
           if (j === this.fingerMeshes[i].length - 1) {
             mesh = this.fingerMeshes[i][j];
             mesh.position.fromArray(bone.prevJoint);
+            mesh.material.transparent = true;
+            mesh.material.opacity = 0.5;
+            // mesh = am handballen die glieder
             break;
           }
           bone = finger.bones[3 - (j / 2)];
           mesh = this.fingerMeshes[i][j];
           mesh.position.fromArray(bone.nextJoint);
+          mesh.material.transparent = true;
+          mesh.material.opacity = 0.5;
+          // mesh = alle glieder des fingers ohne handballenglied
           if (i === 3 && j == 8) {
+            // not sure
             mesh.material.color.setHex(0xdddddd);
+            mesh.material.transparent = true;
+            mesh.material.opacity = 0.5;
           }
           ++j;
           mesh = this.fingerMeshes[i][j];
           mesh.position.fromArray(bone.center());
           mesh.setRotationFromMatrix((new THREE.Matrix4).fromArray(bone.matrix()));
+          // mesh = glieder-zwischenraeume / die grauen linien
+            // mesh.material.color.setHex(0x848484);
+            mesh.material.transparent = true;
+            mesh.material.opacity = 0.5;
           mesh.quaternion.multiply(baseBoneRotation);
           ++j;
         }
