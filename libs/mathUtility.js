@@ -9,8 +9,6 @@ var mUtil = {
 	},
 
 	vec2angle: function(v1, v2) {
-		console.log("v1", v1);
-		console.log("v2", v2);
 		return Math.acos(Leap.glMatrix.vec2.dot(v1, v2) / (Leap.glMatrix.vec2.length(v1) * Leap.glMatrix.vec2.length(v2))) * this.TO_DEG;
 
 	}

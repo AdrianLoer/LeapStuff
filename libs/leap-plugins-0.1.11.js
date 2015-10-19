@@ -52,6 +52,9 @@
     camera.position.set(0, 300, 500);
     camera.lookAt(new THREE.Vector3(0, 160, 0));
     scope.scene.add(camera);
+
+    // controls = new THREE.OrbitControls( camera );
+
     if (!scope.width && !scope.height) {
       window.addEventListener('resize', function() {
         width = window.innerWidth;

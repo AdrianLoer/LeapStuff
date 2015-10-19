@@ -6,11 +6,18 @@
         margin: 0px;
         padding: 0px;
       }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
     </style>
     <script src="../libs/mathUtility.js"></script>
     <script src="../libs/three.js"></script>
     <script src="../libs/jquery-2.1.4.min.js"></script>
     <script src="../libs/leap-0.6.4.js"></script>
+    <script src="https://dl.dropboxusercontent.com/u/3587259/Code/Threejs/OrbitControls.js"></script>
     <script src="../libs/leap-plugins-0.1.11.js"></script>
     <script src="../LeapTrainer/leaptrainer.js"></script>
     <script src="../libs/fabric.js-1.5.0/dist/fabric.js"></script>
@@ -19,8 +26,14 @@
     <!-- <canvas id="canvas"></canvas> -->
     <h1>Finger</h1>
     <div id="finger" style="position: absolute"></div>
+    <div id="mousePosition" style="position: absolute; top: 20px; right: 20px; background-color: rgba(238, 255, 0, 0.4)"></div>
   </body>
     <script>
+
+    var mousePositionElement = $("#mousePosition");
+    $("body").on("mousemove", function(evt) {
+      mousePositionElement.text(evt.offsetX + " / " + evt.offsetY);
+    })
 
     window.TO_RAD = Math.PI / 180;
     window.TO_DEG = 1 / TO_RAD;
@@ -38,7 +51,13 @@
       };
 
 
-      var controller = new Leap.Controller({enableGestures: false}).setBackground(true);
+      var controller = new Leap.Controller({enableGestures: false}).setBackground(true).use('playback', {
+      // recording: '../records/leap-playback-recording-110fps.json',
+      recording: '../records/complex_movement.json'
+      // recording: '../records/rotating_sideways.json'
+      // recording: '../records/rotating_up.json'
+      // recording: '../records/rotating_z.json'
+    });
 
       var fingerOutput = "";
 
@@ -99,6 +118,12 @@
             printToScreen("testMeshOne/Two angle 2D: " + mUtil.vec2angle([testMeshOne.position.x, testMeshOne.position.y], [testMeshTwo.position.x, testMeshTwo.position.y]));
 
 
+            updateCoordinatesForHelperLines(frame);
+            drawHelperLines();
+            drawAngleText();
+
+            console.log("helperMarker position on screen: ", getScreenCoordinateForObject(helperMarker.blue));
+
           }
 
           document.getElementById("finger").innerHTML = fingerOutput;
@@ -124,6 +149,8 @@
 
       testMeshOne.position.fromArray([100, 100, 0]);
       testMeshTwo.position.fromArray([200, 200, 0]);
+
+
 
 
       function moveCube(position) {
@@ -158,6 +185,181 @@
         return [vector[0], vector[1]];
       }
 
+      var helperLines = [
+        [
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          }
+        ],
+        [
+        ]
+      ]
+
+
+      function initHelperLines() {
+        for (var i = 0; i < helperLines[0].length; i++) {
+          controller.plugins.boneHand.scene.add(helperLines[0][i].geometryFlat);
+          helperLines[0][i].geometryFlat.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+          helperLines[0][i].geometryFlat.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+          controller.plugins.boneHand.scene.add(helperLines[0][i].geometryAngled);
+          helperLines[0][i].geometryAngled.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+          helperLines[0][i].geometryAngled.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+        }
+      }
+
+      initHelperLines();
+
+      function updateCoordinatesForHelperLines(frame) {
+        var finger;
+        for (var i = 0; i < frame.hands[0].fingers.length;  i++) {
+          finger = frame.hands[0].fingers[i];
+          // console.log(finger);
+          helperLines[0][i].x1 = finger.carpPosition[0];
+          helperLines[0][i].y1 = finger.carpPosition[1];
+          helperLines[0][i].z1 = finger.carpPosition[2];
+          helperLines[0][i].x2 = finger.tipPosition[0];
+          helperLines[0][i].y2 = finger.tipPosition[1];
+          helperLines[0][i].z2 = finger.tipPosition[2];
+        }
+      }
+
+      function drawHelperLines() {
+        var helperObject;
+        for (var i = 0; i < helperLines[0].length; i++) {
+          helperObject = helperLines[0][i];
+          // helperLines[0][i].geometry.vertices[new THREE.Vector3(helperObject.x1, helperObject.y1, helperObject.z1), new THREE.Vector3(helperObject.x2, helperObject.y2, helperObject.z2)];
+          helperLines[0][i].geometryFlat.geometry.vertices[0].set(helperObject.x1, helperObject.y1, helperObject.z1);
+          helperLines[0][i].geometryFlat.geometry.vertices[1].set(helperObject.x2, helperObject.y2, helperObject.z2);
+          helperLines[0][i].geometryFlat.geometry.verticesNeedUpdate = true;
+
+          helperLines[0][i].geometryAngled.geometry.vertices[0].set(helperObject.x1, helperObject.y1, helperObject.z1);
+          helperLines[0][i].geometryAngled.geometry.vertices[1].set(helperObject.x2, helperObject.y1, helperObject.z2);
+          helperLines[0][i].geometryAngled.geometry.verticesNeedUpdate = true;
+        };
+      }
+
+      var angleTexts = [
+      [{
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      }
+      ],
+      [
+      ]
+      ]
+
+      function initAngleText() {
+        var text;
+        for (var i = 0; i < angleTexts[0].length; i++) {
+          text = angleTexts[0][i];
+          text.element = document.createElement("div");
+          text.element.style.position = "absolute";
+          text.element.style.width = 100;
+          text.element.style.height =100;
+          text.element.style.backgroundColor = "yellow";
+          text.element.style.top = 200 + "px";
+          text.element.style.right = 200 + "px";
+          text.element.innerHTML = "test";
+          document.body.appendChild(text.element);
+        }
+      }
+
+      initAngleText();
+
+      function drawAngleText() {
+        var v1, v2, helperObject;
+        for (var i = 0; i < helperLines[0].length; i++) {
+          helperObject = helperLines[0][i];
+          v1 = [helperObject.x1, helperObject.y1, helperObject.z1];
+          v2 = [helperObject.x2, helperObject.y2, helperObject.z2];
+          angleTexts[0][i].element.innerHTML = mUtil.vec3angle(v1, v2) + "deg";
+        }
+      }
+
+
+      function getScreenCoordinateForObject(obj) {
+
+        var vector = new THREE.Vector3();
+
+        var widthHalf = 0.5*controller.plugins.boneHand.renderer.context.canvas.width;
+        var heightHalf = 0.5*controller.plugins.boneHand.renderer.context.canvas.height;
+
+        obj.updateMatrixWorld();
+        vector.setFromMatrixPosition(obj.matrixWorld);
+        vector.project(controller.plugins.boneHand.camera);
+
+        vector.x = ( vector.x * widthHalf ) + widthHalf;
+        vector.y = - ( vector.y * heightHalf ) + heightHalf;
+
+        return {
+            x: vector.x,
+            y: vector.y
+        };
+
+      }
 
     </script>
 </html>      
