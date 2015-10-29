@@ -41,7 +41,7 @@
     var state = "normal";
 
       window.onkeypress = function(e) {
-        if (e.charCode == 32) { //spacebar
+        if (e.charCode == 32 || e.charCode == 102) { //spacebar || f
           if (state == "normal") {
             state = "train";
           }else{
@@ -67,6 +67,7 @@
           // console.log(frame);
           // console.log(frame.fingers);
           // console.log(frame.fingers[0].dipPosition);
+
 
           for (var i = 0; i < frame.fingers.length; i++) {
             fingerOutput = fingerOutput + "<p>";
@@ -122,7 +123,16 @@
             drawHelperLines();
             drawAngleText();
 
-            console.log("helperMarker position on screen: ", getScreenCoordinateForObject(helperMarker.blue));
+            handDirectionArrow.position.fromArray(frame.hands[0].palmPosition);
+            handDirectionArrow.setDirection((new THREE.Vector3).fromArray(frame.hands[0].direction));
+            // handDirectionArrow.setDirection((new THREE.Vector3).fromArray(frame.hands[0].palmNormal));
+
+            var boneXOffset = (frame.hands[0].arm.width / 2) * 0.85
+
+            armDirectionArrow.position.fromArray(frame.hands[0].arm.center());
+            armDirectionArrow.setDirection((new THREE.Vector3).fromArray([frame.hands[0].arm.direction()[0], frame.hands[0].arm.direction()[1], frame.hands[0].arm.direction()[2]]));
+
+            console.log(frame.hands[0].arm);
 
           }
 
@@ -311,6 +321,8 @@
       ]
       ]
 
+      var screenPositionHelperObject;
+
       function initAngleText() {
         var text;
         for (var i = 0; i < angleTexts[0].length; i++) {
@@ -325,20 +337,25 @@
           text.element.innerHTML = "test";
           document.body.appendChild(text.element);
         }
+
+        screenPositionHelperObject = new THREE.Mesh(new THREE.SphereGeometry(0, 0, 0), new THREE.MeshLambertMaterial({color: 0x091DFF}));
       }
 
       initAngleText();
 
       function drawAngleText() {
-        var v1, v2, helperObject;
+        var v1, v2, helperObject, tmpVector;
         for (var i = 0; i < helperLines[0].length; i++) {
           helperObject = helperLines[0][i];
           v1 = [helperObject.x1, helperObject.y1, helperObject.z1];
           v2 = [helperObject.x2, helperObject.y2, helperObject.z2];
           angleTexts[0][i].element.innerHTML = mUtil.vec3angle(v1, v2) + "deg";
+          screenPositionHelperObject.position.fromArray([helperObject.x1, helperObject.y1, helperObject.z1]);
+          tmpVector = getScreenCoordinateForObject(screenPositionHelperObject);
+          angleTexts[0][i].element.style.left = tmpVector.x;
+          angleTexts[0][i].element.style.top = tmpVector.y;
         }
       }
-
 
       function getScreenCoordinateForObject(obj) {
 
@@ -360,6 +377,12 @@
         };
 
       }
+
+      var handDirectionArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 100, 0x006127);
+      controller.plugins.boneHand.scene.add(handDirectionArrow);
+
+      var armDirectionArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 100, 0xFF00F7);
+      controller.plugins.boneHand.scene.add(armDirectionArrow);
 
     </script>
 </html>      

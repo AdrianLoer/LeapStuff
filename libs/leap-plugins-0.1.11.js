@@ -163,6 +163,8 @@
         for (i = _k = 0; _k <= 3; i = ++_k) {
           this.armBones.push(new THREE.Mesh(new THREE.CylinderGeometry(boneRadius, boneRadius, (i < 2 ? 1000 : 100), 32), material.clone()));
           this.armBones[i].material.color.copy(boneColor);
+          this.armBones[i].material.transparent = true;
+          this.armBones[i].material.opacity = 0.3;
           this.armBones[i].castShadow = true;
           this.armBones[i].name = "ArmBone" + i;
           if (i > 1) {
@@ -174,6 +176,8 @@
         for (i = _l = 0; _l <= 3; i = ++_l) {
           this.armSpheres.push(new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 32, 32), material.clone()));
           this.armSpheres[i].material.color.copy(jointColor);
+          this.armSpheres[i].material.transparent = true;
+          this.armSpheres[i].material.opacity = 0.3;
           this.armSpheres[i].castShadow = true;
           this.armSpheres[i].name = "ArmSphere" + i;
           this.armMesh.add(this.armSpheres[i]);
@@ -248,7 +252,7 @@
             mesh = this.fingerMeshes[i][j];
             mesh.position.fromArray(bone.prevJoint);
             mesh.material.transparent = true;
-            mesh.material.opacity = 0.5;
+            mesh.material.opacity = 0.3;
             // mesh = am handballen die glieder
             break;
           }
@@ -256,13 +260,13 @@
           mesh = this.fingerMeshes[i][j];
           mesh.position.fromArray(bone.nextJoint);
           mesh.material.transparent = true;
-          mesh.material.opacity = 0.5;
+          mesh.material.opacity = 0.3;
           // mesh = alle glieder des fingers ohne handballenglied
           if (i === 3 && j == 8) {
             // not sure
             mesh.material.color.setHex(0xdddddd);
             mesh.material.transparent = true;
-            mesh.material.opacity = 0.5;
+            mesh.material.opacity = 0.3;
           }
           ++j;
           mesh = this.fingerMeshes[i][j];
@@ -271,7 +275,7 @@
           // mesh = glieder-zwischenraeume / die grauen linien
             // mesh.material.color.setHex(0x848484);
             mesh.material.transparent = true;
-            mesh.material.opacity = 0.5;
+            mesh.material.opacity = 0.3;
           mesh.quaternion.multiply(baseBoneRotation);
           ++j;
         }
