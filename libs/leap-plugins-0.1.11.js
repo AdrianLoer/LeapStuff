@@ -159,6 +159,7 @@
       if (scope.arm) {
         this.armMesh = new THREE.Object3D;
         this.armBones = [];
+        window.armBones = this.armBones;
         this.armSpheres = [];
         for (i = _k = 0; _k <= 3; i = ++_k) {
           this.armBones.push(new THREE.Mesh(new THREE.CylinderGeometry(boneRadius, boneRadius, (i < 2 ? 1000 : 100), 32), material.clone()));
@@ -173,6 +174,7 @@
           this.armMesh.add(this.armBones[i]);
         }
         this.armSpheres = [];
+        window.armSpheres = this.armSpheres;
         for (i = _l = 0; _l <= 3; i = ++_l) {
           this.armSpheres.push(new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 32, 32), material.clone()));
           this.armSpheres[i].material.color.copy(jointColor);
