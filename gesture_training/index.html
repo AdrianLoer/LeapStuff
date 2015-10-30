@@ -13,12 +13,12 @@
         left: 0;
       }
     </style>
-    <script src="../libs/mathUtility.js"></script>
     <script src="../libs/jquery-2.1.4.min.js"></script>
     <script src="../libs/dat.gui.js"></script>
     <script src="./values.js"></script>
     <script src="../libs/three.js"></script>
     <script src="../libs/leap-0.6.4.js"></script>
+    <script src="../libs/mathUtility.js"></script>
     <script src="https://dl.dropboxusercontent.com/u/3587259/Code/Threejs/OrbitControls.js"></script>
     <script src="../libs/leap-plugins-0.1.11.js"></script>
     <script src="../LeapTrainer/leaptrainer.js"></script>
@@ -158,6 +158,13 @@
 
           if (gui.showFingerAngleData) {
             updateArmPlane();
+            if (frame.hands.length > 0) {
+              console.log(frame.hands[0].fingers[1].tipPosition);
+              console.log("normalized: ", Leap.vec3.normalize(perpendicularVectorToPlane, perpendicularVectorToPlane));
+              // mUtil.vecAngleLinePlane(Leap.vec3.normalize(perpendicularVectorToPlane, perpendicularVectorToPlane), frame.hands[0].fingers[1].tipPosition);
+              
+            }
+
           }
 
 
@@ -187,6 +194,7 @@
 
       var armBones = [];
       var armVectors = [];
+      var perpendicularVectorToPlane = Leap.vec3.create();
       var plane;
       function initArmPlane() {
         for (var i = 0; i < 4; i++) {
@@ -214,12 +222,18 @@
         for (var i = 0; i < armBones.length; i++) {
           armBones[i].setFromMatrixPosition(window.armSpheres[i].matrixWorld);
         }
+        // 0 + 2 + 3 for plane
         // console.log(armBones[0]);
         // 0 and 3 + 1 and 2 are the bones needed to create the lines
-        helperMarker['yellow'].position.fromArray(armBones[3].toArray());
+        helperMarker['yellow'].position.fromArray(armBones[0].toArray());
         // vector.setFromMatrixPosition( window.armSpheres[0].matrixWorld );
         // console.log(vector);
         armVectors[0].subVectors(armBones[3], armBones[0]);
+        armVectors[1].subVectors(armBones[3], armBones[2]);
+        Leap.vec3.cross(perpendicularVectorToPlane, armVectors[0].toArray(), armVectors[1].toArray());
+        console.log("armVectors[0]", armVectors[0]);
+        console.log("armVectors[1]", armVectors[1]);
+        console.log("perpendicularVectorToPlane", perpendicularVectorToPlane);
         // var newVec = Leap.vec3.create();
         // armVectors[0] = Leap.vec3.subtract(newVec, armBones[3].toArray(), armBones[0].toArray());
         // armVectors[1].subVectors(armBones[1], armBones[2]);
@@ -227,17 +241,15 @@
         armVectors[0].normalize();
         // armVectors[1].subVectors(armBones[1], armBones[2]);
 
-        console.log(armVectors[0]);
-
         testArrow1.position.fromArray(armBones[0].toArray());
         // testArrow1.setDirection((new THREE.Vector3).fromArray(armVectors[0]));
         // testArrow1.setDirection(armVectors[0].toArray());
         testArrow1.setDirection(armVectors[0]);
         var distance = Leap.vec3.distance(armBones[0].toArray(), armBones[3].toArray());
 
-        console.log("pos v1: ", armBones[0].toArray());
-        console.log("pos v2: ", armBones[3].toArray());
-        console.log("subbed: ", armVectors[0]);
+        // console.log("pos v1: ", armBones[0].toArray());
+        // console.log("pos v2: ", armBones[3].toArray());
+        // console.log("subbed: ", armVectors[0]);
 
         // console.log("dist 3js: " + armVectors[0]);
         // console.log("dist vec3: " + distance);
@@ -246,10 +258,6 @@
         plane.geometry.vertices[2].fromArray(armBones[2].toArray());
         plane.geometry.vertices[3].fromArray(armBones[3].toArray());
         plane.geometry.verticesNeedUpdate = true;
-
-
-
-        console.log(plane);
 
       }
 
