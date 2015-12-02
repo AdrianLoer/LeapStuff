@@ -1,0 +1,417 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
+    <script src="../libs/jquery-2.1.4.min.js"></script>
+    <script src="../libs/dat.gui.js"></script>
+    <script src="./values.js"></script>
+    <script src="./trainingDataFormat.js"></script>
+    <script src="../libs/three.js"></script>
+    <script src="../libs/leap-0.6.4.js"></script>
+    <script src="../libs/mathUtility.js"></script>
+    <script src="../libs/leap-plugins-0.1.11.js"></script>
+    <script src="../LeapTrainer/leaptrainer.js"></script>
+    <script src="../libs/fabric.js-1.5.0/dist/fabric.js"></script>
+  </head>
+  <body>
+    <div id="finger" style="position: absolute"></div>
+    <div id="mousePosition" style="position: absolute; top: 20px; right: 20px; background-color: rgba(238, 255, 0, 0.4)"></div>
+  </body>
+    <script>
+
+    window.TO_RAD = Math.PI / 180;
+    window.TO_DEG = 1 / TO_RAD;
+
+    var state = "train";
+    var shouldRecordTrainingData = false;
+
+      var controller = new Leap.Controller({enableGestures: false}).setBackground(true).use('playback', {
+      recording: '../records/complex_movement.json'
+    });
+
+      var fingerOutput = "";
+
+      controller.loop(function(frame) {
+
+        if (state === "train" && frame !== undefined) {
+
+          if (gui.showFingerData) {
+
+            for (var i = 0; i < frame.fingers.length; i++) {
+              fingerOutput = fingerOutput + "<p>";
+              for (var j = 0; j < frame.fingers[i].dipPosition.length; j++) {
+                fingerOutput = fingerOutput + frame.fingers[i].dipPosition[j] + "   ";
+                
+              }
+                fingerOutput = fingerOutput + "</p>";
+            }
+          }
+
+          if (gui.showHandData) {
+            if (frame.hands.length > 0) {
+
+              fingerOutput = fingerOutput + "<p> roll: " + frame.hands[0].roll() * TO_DEG + "</p>";
+              fingerOutput = fingerOutput + "<p> pitch: " + frame.hands[0].pitch() * TO_DEG + "</p>";
+              fingerOutput = fingerOutput + "<p> yaw: " + frame.hands[0].yaw() * TO_DEG + "</p>";
+
+            }
+          }
+
+
+          if (frame.hands.length > 0) {
+            addMarker("blue", frame.hands[0].fingers[1].tipPosition);
+            addMarker("red", frame.hands[0].fingers[1].carpPosition);
+
+
+            if (gui.showHelperData) {
+
+              fingerOutput = fingerOutput + "<p>BLUE:  " + frame.hands[0].fingers[1].tipPosition + "</p>";
+              fingerOutput = fingerOutput + "<p>RED:  " + frame.hands[0].fingers[1].carpPosition + "</p>";
+
+              fingerOutput = fingerOutput + "<p> Angle vec3  " + mUtil.vec3angle(frame.hands[0].fingers[1].tipPosition, frame.hands[0].fingers[1].carpPosition) + "</p>";
+              fingerOutput = fingerOutput + "<p> Angle THREE:  " + helperMarker.blue.position.angleTo(helperMarker.red.position) * mUtil.TO_DEG + "</p>";
+
+              printToScreen("Angle vec2: " + mUtil.vec2angle(v3asv2(frame.hands[0].fingers[1].tipPosition), v3asv2(frame.hands[0].fingers[1].carpPosition)));
+
+
+              fingerOutput = fingerOutput + "<p> angle 2d:  " + Math.atan(helperMarker.blue.position.y - helperMarker.red.position.y, helperMarker.blue.position.x - helperMarker.red.position.x) * (180 / Math.PI) + "</p>";
+
+              printToScreen("testMeshOne/Two angle 3D: " + mUtil.vec3angle([testMeshOne.position.x, testMeshOne.position.y, testMeshOne.position.z], [testMeshTwo.position.x, testMeshTwo.position.y, testMeshTwo.position.z]));
+
+              printToScreen("testMeshOne/Two angle 2D: " + mUtil.vec2angle([testMeshOne.position.x, testMeshOne.position.y], [testMeshTwo.position.x, testMeshTwo.position.y]));
+
+            }
+
+            updateCoordinatesForHelperLines(frame);
+            drawHelperLines();
+
+            handDirectionArrow.position.fromArray(frame.hands[0].palmPosition);
+            handDirectionArrow.setDirection((new THREE.Vector3).fromArray(frame.hands[0].direction));
+
+            var boneXOffset = (frame.hands[0].arm.width / 2) * 0.85
+
+            armDirectionArrow.position.fromArray(frame.hands[0].arm.center());
+            armDirectionArrow.setDirection((new THREE.Vector3).fromArray([frame.hands[0].arm.direction()[0], frame.hands[0].arm.direction()[1], frame.hands[0].arm.direction()[2]]));
+
+          }
+
+
+          updateArmPlane();
+
+          calculateFingerAngleData(frame);
+
+          calculateArmAngleData(frame);            
+
+          document.getElementById("finger").innerHTML = fingerOutput;
+
+          fingerOutput = "";
+
+          storeFrameData();
+
+        }
+
+      })
+      .use('screenPosition', {scale: 1})
+      .use('boneHand', {
+        targetEl: document.body,
+        arm: true
+      });
+
+      var geometry = new THREE.CubeGeometry(10, 10, 10);
+      var material = new THREE.MeshLambertMaterial({});
+
+      var temporaryVector = Leap.vec3.create();
+
+      var armBones = [];
+      var armVectors = [];
+      var perpendicularVectorToPlane = Leap.vec3.create();
+      var plane;
+      function initArmPlane() {
+        for (var i = 0; i < 4; i++) {
+          armBones.push(new THREE.Vector3());
+        }
+
+        armVectors.push(new THREE.Vector3());
+        armVectors.push(new THREE.Vector3());
+
+        var geometry = new THREE.PlaneGeometry( 200, 200);
+        var material = new THREE.MeshBasicMaterial( {color: 0x1400FF, side: THREE.DoubleSide} );
+        plane = new THREE.Mesh( geometry, material );
+        controller.plugins.boneHand.scene.add( plane );
+      }
+      initArmPlane();
+
+      function storeFrameData() {
+        if (shouldRecordTrainingData) {
+          recordedFrameDataStore.frameData.push(frameDataStore);
+        }
+      }
+
+
+      function updateArmPlane() {
+        for (var i = 0; i < armBones.length; i++) {
+          armBones[i].setFromMatrixPosition(window.armSpheres[i].matrixWorld);
+        }
+        armVectors[0].subVectors(armBones[3], armBones[0]);
+        armVectors[1].subVectors(armBones[3], armBones[2]);
+        Leap.vec3.cross(perpendicularVectorToPlane, armVectors[0].toArray(), armVectors[1].toArray());
+        armVectors[0].normalize();
+
+        testArrow1.position.fromArray(armBones[0].toArray());
+        testArrow1.setDirection(armVectors[0]);
+        var distance = Leap.vec3.distance(armBones[0].toArray(), armBones[3].toArray());
+
+        plane.geometry.vertices[0].fromArray(armBones[0].toArray());
+        plane.geometry.vertices[1].fromArray(armBones[1].toArray());
+        plane.geometry.vertices[2].fromArray(armBones[2].toArray());
+        plane.geometry.vertices[3].fromArray(armBones[3].toArray());
+        plane.geometry.verticesNeedUpdate = true;
+
+      }
+
+      function calculateFingerAngleData(frame) {
+        if (frame.hands.length > 0) {
+          for (var i = 0; i < frame.hands[0].fingers.length; i++) {
+            Leap.vec3.subtract(temporaryVector, frame.hands[0].fingers[i].tipPosition, frame.hands[0].fingers[i].carpPosition);
+            frameDataStore.fingers[i].angle = mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector);
+            if (gui.showFingerAngleData) {
+              printToScreen("finger " + i + " angle:  " + frameDataStore.fingers[i].angle);
+            }
+          }
+        }
+      }
+
+      function calculateArmAngleData(frame) {
+        if (frame.hands.length > 0) {
+
+          
+          frameDataStore.handAngle = mUtil.vecAngleLinePlane(frame.hands[0].direction, Leap.vec3.fromValues(0, 1, 0));
+
+          if (gui.showFingerAngleData) {
+            printToScreen("handangle:  " + frameDataStore.handAngle);
+          }
+        }
+      }
+
+
+      var blueMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0x091DFF}));
+      var redMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFF0007}));
+      controller.plugins.boneHand.scene.add(blueMesh);
+      controller.plugins.boneHand.scene.add(redMesh);
+
+      var helperMarker = {
+        blue: blueMesh,
+        red: redMesh
+      }
+
+      function addMarker(style, position) {
+        helperMarker[style].position.fromArray(position);
+      }
+
+      function printToScreen(msg) {
+        fingerOutput = fingerOutput + "<p>" + msg + "</p>";
+      }
+
+      function v3asv2(vector) {
+        return [vector[0], vector[1]];
+      }
+
+      var helperLines = [
+        [
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          },
+          {
+            x1: 0,
+            y1: 0,
+            z1: 0,
+            x2: 0,
+            y2: 0,
+            z2: 0,
+            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
+            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
+          }
+        ],
+        [
+        ]
+      ]
+
+
+      function initHelperLines() {
+        for (var i = 0; i < helperLines[0].length; i++) {
+          controller.plugins.boneHand.scene.add(helperLines[0][i].geometryFlat);
+          helperLines[0][i].geometryFlat.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+          helperLines[0][i].geometryFlat.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+          controller.plugins.boneHand.scene.add(helperLines[0][i].geometryAngled);
+          helperLines[0][i].geometryAngled.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+          helperLines[0][i].geometryAngled.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+        }
+      }
+
+      initHelperLines();
+
+      function updateCoordinatesForHelperLines(frame) {
+        var finger;
+        for (var i = 0; i < frame.hands[0].fingers.length;  i++) {
+          finger = frame.hands[0].fingers[i];
+          helperLines[0][i].x1 = finger.carpPosition[0];
+          helperLines[0][i].y1 = finger.carpPosition[1];
+          helperLines[0][i].z1 = finger.carpPosition[2];
+          helperLines[0][i].x2 = finger.tipPosition[0];
+          helperLines[0][i].y2 = finger.tipPosition[1];
+          helperLines[0][i].z2 = finger.tipPosition[2];
+        }
+      }
+
+      function drawHelperLines() {
+        var helperObject;
+        for (var i = 0; i < helperLines[0].length; i++) {
+          helperObject = helperLines[0][i];
+          helperLines[0][i].geometryFlat.geometry.vertices[0].set(helperObject.x1, helperObject.y1, helperObject.z1);
+          helperLines[0][i].geometryFlat.geometry.vertices[1].set(helperObject.x2, helperObject.y2, helperObject.z2);
+          helperLines[0][i].geometryFlat.geometry.verticesNeedUpdate = true;
+        };
+      }
+
+      var angleTexts = [
+      [{
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      },
+      {
+        text: "",
+        element: null
+      }
+      ],
+      [
+      ]
+      ]
+
+      var screenPositionHelperObject;
+
+      function initAngleText() {
+        var text;
+        for (var i = 0; i < angleTexts[0].length; i++) {
+          text = angleTexts[0][i];
+          text.element = document.createElement("div");
+          text.element.style.position = "absolute";
+          text.element.style.width = 100;
+          text.element.style.height =100;
+          text.element.style.backgroundColor = "yellow";
+          text.element.style.top = 200 + "px";
+          text.element.style.right = 200 + "px";
+          text.element.innerHTML = "test";
+          document.body.appendChild(text.element);
+        }
+
+        screenPositionHelperObject = new THREE.Mesh(new THREE.SphereGeometry(0, 0, 0), new THREE.MeshLambertMaterial({color: 0x091DFF}));
+      }
+
+      // initAngleText();
+
+      function drawAngleText() {
+        var v1, v2, helperObject, tmpVector;
+        for (var i = 0; i < helperLines[0].length; i++) {
+          helperObject = helperLines[0][i];
+          v1 = [helperObject.x1, helperObject.y1, helperObject.z1];
+          v2 = [helperObject.x2, helperObject.y2, helperObject.z2];
+          angleTexts[0][i].element.innerHTML = mUtil.vec3angle(v1, v2) + "deg";
+          screenPositionHelperObject.position.fromArray([helperObject.x1, helperObject.y1, helperObject.z1]);
+          tmpVector = getScreenCoordinateForObject(screenPositionHelperObject);
+          angleTexts[0][i].element.style.left = tmpVector.x;
+          angleTexts[0][i].element.style.top = tmpVector.y;
+        }
+      }
+
+      function getScreenCoordinateForObject(obj) {
+
+        var vector = new THREE.Vector3();
+
+        var widthHalf = 0.5*controller.plugins.boneHand.renderer.context.canvas.width;
+        var heightHalf = 0.5*controller.plugins.boneHand.renderer.context.canvas.height;
+
+        obj.updateMatrixWorld();
+        vector.setFromMatrixPosition(obj.matrixWorld);
+        vector.project(controller.plugins.boneHand.camera);
+
+        vector.x = ( vector.x * widthHalf ) + widthHalf;
+        vector.y = - ( vector.y * heightHalf ) + heightHalf;
+
+        return {
+            x: vector.x,
+            y: vector.y
+        };
+
+      }
+
+      var handDirectionArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 100, 0x006127);
+      controller.plugins.boneHand.scene.add(handDirectionArrow);
+
+      var armDirectionArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 200, 0xFF00F7);
+      controller.plugins.boneHand.scene.add(armDirectionArrow);
+
+      var testArrow1 = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 200, 0x00FF01);
+      controller.plugins.boneHand.scene.add(testArrow1);
+
+    </script>
+</html>      

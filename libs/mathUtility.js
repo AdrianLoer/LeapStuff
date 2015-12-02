@@ -17,7 +17,7 @@ var mUtil = {
 
 	// takes the perpendicular vector to the plane and the line vector
 	vecAngleLinePlane: function(v1, v2) {	
-		return Math.asin(Math.abs(Leap.vec3.dot(v1,v2)) / (Leap.vec3.length(v1) * Leap.vec3.length(v2))) * this.TO_DEG;
+		return Math.asin((Leap.vec3.dot(v1,v2)) / (Leap.vec3.length(v1) * Leap.vec3.length(v2))) * this.TO_DEG;
 	}
 
 }
