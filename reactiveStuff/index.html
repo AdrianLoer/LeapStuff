@@ -11,527 +11,252 @@
         position: absolute;
         top: 0;
         left: 0;
+        margin: -30px;
       }
+
+      .map {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+      }
+  
     </style>
     <script src="../libs/jquery-2.1.4.min.js"></script>
+    <script src="../libs/brain-0.6.3.js"></script>
+    <script src="./v3.11.2-dist/ol-debug.js"></script>
+    <script src="../libs/Bacon.js"></script>
     <script src="../libs/dat.gui.js"></script>
-    <script src="./values.js"></script>
-    <script src="./training_module.js"></script>
-    <script src="./trainingDataFormat.js"></script>
     <script src="../libs/three.js"></script>
     <script src="../libs/leap-0.6.4.js"></script>
     <script src="../libs/mathUtility.js"></script>
-    <script src="https://dl.dropboxusercontent.com/u/3587259/Code/Threejs/OrbitControls.js"></script>
     <script src="../libs/leap-plugins-0.1.11.js"></script>
-    <script src="../LeapTrainer/leaptrainer.js"></script>
-    <script src="../libs/fabric.js-1.5.0/dist/fabric.js"></script>
   </head>
   <body>
-    <!-- <canvas id="canvas"></canvas> -->
-    <div id="finger" style="position: absolute"></div>
-    <div id="mousePosition" style="position: absolute; top: 20px; right: 20px; background-color: rgba(238, 255, 0, 0.4)"></div>
-    <textarea id="output" style="position: absolute; bottom: 20px; left: 20px; z-index: 1000"></textarea>
+  <input id="output" style="position: absolute; top: 10px; left: 10px"></body>
+  <div id="map" class="map"></div>
   </body>
     <script>
 
-    var mousePositionElement = $("#mousePosition");
-    $("body").on("mousemove", function(evt) {
-      mousePositionElement.text(evt.offsetX + " / " + evt.offsetY);
-    })
+      window.output = [];
 
-    window.TO_RAD = Math.PI / 180;
-    window.TO_DEG = 1 / TO_RAD;
-
-
-
-    // var state = "normal";
-    var state = "train";
-    var shouldRecordTrainingData = false;
-
-      window.onkeypress = function(e) {
-        if (e.charCode == 32 || e.charCode == 102) { //spacebar || 'f'
-          if (state == "normal") {
-            state = "train";
-          }else{
-            state = "normal";
-          }
-          // 'r'
-        } else if (e.charCode == 114) {
-          shouldRecordTrainingData = !shouldRecordTrainingData;
-          if (shouldRecordTrainingData) {
-            console.log("record started");
-            $("#output").val(JSON.stringify(recordedFrameDataStore));
-            recordedFrameDataStore.frameData = [];
-          } else {
-            console.log("record stopped");
-          }
-        }
-      };
-
-
-      var controller = new Leap.Controller({enableGestures: false}).setBackground(true).use('playback', {
-      // recording: '../records/leap-playback-recording-110fps.json',
-      // recording: '../records/complex_movement.json'
-      // recording: '../records/rotating_sideways.json'
-      // recording: '../records/rotating_up.json'
-      // recording: '../records/rotating_z.json'
-    });
-
-      var fingerOutput = "";
-
-      controller.loop(function(frame) {
-
-        if (state === "train" && frame !== undefined) {
-          // console.log(frame);
-          // console.log(frame.fingers);
-          // console.log(frame.fingers[0].dipPosition);
-
-
-          if (gui.showFingerData) {
-
-            for (var i = 0; i < frame.fingers.length; i++) {
-              fingerOutput = fingerOutput + "<p>";
-              for (var j = 0; j < frame.fingers[i].dipPosition.length; j++) {
-                fingerOutput = fingerOutput + frame.fingers[i].dipPosition[j] + "   ";
-                
-              }
-                fingerOutput = fingerOutput + "</p>";
-            }
-          }
-
-          if (gui.showHandData) {
-            if (frame.hands.length > 0) {
-
-              fingerOutput = fingerOutput + "<p> roll: " + frame.hands[0].roll() * TO_DEG + "</p>";
-              fingerOutput = fingerOutput + "<p> pitch: " + frame.hands[0].pitch() * TO_DEG + "</p>";
-              fingerOutput = fingerOutput + "<p> yaw: " + frame.hands[0].yaw() * TO_DEG + "</p>";
-
-            }
-          }
-
-
-          // moveCube(frame.hands[0].screenPosition());
-          // moveCube();
-
-          // mesh.rotation.x += 0.01;
-          // mesh.rotation.y += 0.02;
-
-          // bone center
-          if (frame.hands.length > 0) {
-            // moveCube(frame.hands[0].fingers[0].bones[2].center());
-            // green circle (= pointables?)
-            // moveCube(frame.hands[0].fingers[0].carpPosition);
-            // moveCube(frame.hands[0].fingers[0].mcpPosition);
-            // moveCube(frame.hands[0].fingers[0].pipPosition);
-            // moveCube(frame.hands[0].fingers[0].dipPosition);
-            // moveCube(frame.hands[0].fingers[0].tipPosition);
-
-            addMarker("blue", frame.hands[0].fingers[1].tipPosition);
-            addMarker("red", frame.hands[0].fingers[1].carpPosition);
-
-
-
-            if (gui.showHelperData) {
-
-              fingerOutput = fingerOutput + "<p>BLUE:  " + frame.hands[0].fingers[1].tipPosition + "</p>";
-              fingerOutput = fingerOutput + "<p>RED:  " + frame.hands[0].fingers[1].carpPosition + "</p>";
-
-              fingerOutput = fingerOutput + "<p> Angle vec3  " + mUtil.vec3angle(frame.hands[0].fingers[1].tipPosition, frame.hands[0].fingers[1].carpPosition) + "</p>";
-              fingerOutput = fingerOutput + "<p> Angle THREE:  " + helperMarker.blue.position.angleTo(helperMarker.red.position) * mUtil.TO_DEG + "</p>";
-
-              printToScreen("Angle vec2: " + mUtil.vec2angle(v3asv2(frame.hands[0].fingers[1].tipPosition), v3asv2(frame.hands[0].fingers[1].carpPosition)));
-
-
-              fingerOutput = fingerOutput + "<p> angle 2d:  " + Math.atan(helperMarker.blue.position.y - helperMarker.red.position.y, helperMarker.blue.position.x - helperMarker.red.position.x) * (180 / Math.PI) + "</p>";
-
-              printToScreen("testMeshOne/Two angle 3D: " + mUtil.vec3angle([testMeshOne.position.x, testMeshOne.position.y, testMeshOne.position.z], [testMeshTwo.position.x, testMeshTwo.position.y, testMeshTwo.position.z]));
-
-              printToScreen("testMeshOne/Two angle 2D: " + mUtil.vec2angle([testMeshOne.position.x, testMeshOne.position.y], [testMeshTwo.position.x, testMeshTwo.position.y]));
-
-            }
-
-            updateCoordinatesForHelperLines(frame);
-            drawHelperLines();
-            // drawAngleText();
-
-            handDirectionArrow.position.fromArray(frame.hands[0].palmPosition);
-            handDirectionArrow.setDirection((new THREE.Vector3).fromArray(frame.hands[0].direction));
-            // handDirectionArrow.setDirection((new THREE.Vector3).fromArray(frame.hands[0].palmNormal));
-
-            var boneXOffset = (frame.hands[0].arm.width / 2) * 0.85
-
-            armDirectionArrow.position.fromArray(frame.hands[0].arm.center());
-            // console.log("some origin: ", frame.hands[0].arm.center());
-            // console.log("some direction: ", (new THREE.Vector3).fromArray([frame.hands[0].arm.direction()[0], frame.hands[0].arm.direction()[1], frame.hands[0].arm.direction()[2]]));
-            armDirectionArrow.setDirection((new THREE.Vector3).fromArray([frame.hands[0].arm.direction()[0], frame.hands[0].arm.direction()[1], frame.hands[0].arm.direction()[2]]));
-
-            // console.log(frame.hands[0].arm);
-
-          }
-
-
-          updateArmPlane();
-
-          calculateFingerAngleData(frame);
-
-          calculateArmAngleData(frame);
-
-
-            // console.log(frame.hands[0].fingers[1].tipPosition);
-            // console.log("normalized: ", Leap.vec3.normalize(perpendicularVectorToPlane, perpendicularVectorToPlane));
-            // mUtil.vecAngleLinePlane(Leap.vec3.normalize(perpendicularVectorToPlane, perpendicularVectorToPlane), frame.hands[0].fingers[1].tipPosition);
-            
-
-          document.getElementById("finger").innerHTML = fingerOutput;
-
-          fingerOutput = "";
-
-          storeFrameData();
-
-        }
-
-      })
-      .use('screenPosition', {scale: 1})
-      .use('boneHand', {
-        targetEl: document.body,
-        arm: true
+      var map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.MapQuest({layer: 'sat'})
+          })
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([37.41, 8.82]),
+          zoom: 4
+        })
       });
 
-      var geometry = new THREE.CubeGeometry(10, 10, 10);
-      var material = new THREE.MeshLambertMaterial({});
+      var lastZoom = 4;
+      var pxOffset = 0;
+      function moveMapByPx(px) {
+        var currentPixel = map.getPixelFromCoordinate(map.getView().getCenter());
+        var newCoordinate = map.getCoordinateFromPixel([currentPixel[0] + px[0], currentPixel[1] + px[1]]);
+        map.getView().setCenter(newCoordinate);
+      }
 
-      var temporaryVector = Leap.vec3.create();
-
-      var testMeshOne = new THREE.Mesh(geometry, material);
-      var testMeshTwo = new THREE.Mesh(geometry, material);
-      controller.plugins.boneHand.scene.add(testMeshOne);
-      controller.plugins.boneHand.scene.add(testMeshTwo);
-
-      testMeshOne.position.fromArray([100, 100, 0]);
-      testMeshTwo.position.fromArray([200, 200, 0]);
-
-      var armBones = [];
-      var armVectors = [];
-      var perpendicularVectorToPlane = Leap.vec3.create();
-      var plane;
-      function initArmPlane() {
-        for (var i = 0; i < 4; i++) {
-          armBones.push(new THREE.Vector3());
+      function zoomBy(scale) {
+        pxOffset = pxOffset + scale;
+        var currentZoom = map.getView().getZoom();
+        console.log(currentZoom);
+        if (currentZoom === undefined) {
+          currentZoom = lastZoom;
         }
-
-        armVectors.push(new THREE.Vector3());
-        armVectors.push(new THREE.Vector3());
-
-        var geometry = new THREE.PlaneGeometry( 200, 200);
-        var material = new THREE.MeshBasicMaterial( {color: 0x1400FF, side: THREE.DoubleSide} );
-        plane = new THREE.Mesh( geometry, material );
-        controller.plugins.boneHand.scene.add( plane );
-        console.log(plane);
-
-        // window.armBones[0].material.opacity = 1;
-        // window.armBones[1].material.opacity = 1;
-      }
-      initArmPlane();
-
-      function storeFrameData() {
-        if (shouldRecordTrainingData) {
-          recordedFrameDataStore.frameData.push(JSON.parse(JSON.stringify(frameDataStore)));
-        }
+        lastZoom = currentZoom;
+        var newZoom = currentZoom + 3 * pxOffset / 100;
+        console.log(newZoom);
+        map.getView().setZoom(newZoom);
+        console.log("pxOffset ", pxOffset);
       }
 
+      var recordFrameEventStream = $(window).asEventStream("keydown");
 
-      function updateArmPlane() {
-        // console.log(window.armBones[0].position);
-        for (var i = 0; i < armBones.length; i++) {
-          armBones[i].setFromMatrixPosition(window.armSpheres[i].matrixWorld);
-        }
-        // 0 + 2 + 3 for plane
-        // console.log(armBones[0]);
-        // 0 and 3 + 1 and 2 are the bones needed to create the lines
-        // vector.setFromMatrixPosition( window.armSpheres[0].matrixWorld );
-        // console.log(vector);
-        armVectors[0].subVectors(armBones[3], armBones[0]);
-        armVectors[1].subVectors(armBones[3], armBones[2]);
-        Leap.vec3.cross(perpendicularVectorToPlane, armVectors[0].toArray(), armVectors[1].toArray());
-        // console.log("armVectors[0]", armVectors[0]);
-        // console.log("armVectors[1]", armVectors[1]);
-        // console.log("perpendicularVectorToPlane", perpendicularVectorToPlane);
-        // var newVec = Leap.vec3.create();
-        // armVectors[0] = Leap.vec3.subtract(newVec, armBones[3].toArray(), armBones[0].toArray());
-        // armVectors[1].subVectors(armBones[1], armBones[2]);
-        // armVectors[1].subVectors(armBones[1], armBones[2]);
-        armVectors[0].normalize();
-        // armVectors[1].subVectors(armBones[1], armBones[2]);
+      var net = new brain.NeuralNetwork();
 
-        testArrow1.position.fromArray(armBones[0].toArray());
-        // testArrow1.setDirection((new THREE.Vector3).fromArray(armVectors[0]));
-        // testArrow1.setDirection(armVectors[0].toArray());
-        testArrow1.setDirection(armVectors[0]);
-        var distance = Leap.vec3.distance(armBones[0].toArray(), armBones[3].toArray());
+      $.getJSON( "./distance_training_net.json", function(data) {
+        net = net.fromJSON(data);
+      });
 
-        // console.log("pos v1: ", armBones[0].toArray());
-        // console.log("pos v2: ", armBones[3].toArray());
-        // console.log("subbed: ", armVectors[0]);
 
-        // console.log("dist 3js: " + armVectors[0]);
-        // console.log("dist vec3: " + distance);
-        plane.geometry.vertices[0].fromArray(armBones[0].toArray());
-        plane.geometry.vertices[1].fromArray(armBones[1].toArray());
-        plane.geometry.vertices[2].fromArray(armBones[2].toArray());
-        plane.geometry.vertices[3].fromArray(armBones[3].toArray());
-        plane.geometry.verticesNeedUpdate = true;
+      var controller = new Leap.Controller({enableGestures: false}).setBackground(false);
 
+      function frameStream(controller) {
+          return Bacon.fromBinder(function(sink) {
+                    controller.loop(function(frame) {
+                      sink(frame);
+                    })
+                    .use('boneHand', {
+                      targetEl: document.body,
+                      arm: true
+                    });
+              return function() {
+                console.log("frameStream off");
+              }
+          })
       }
 
-      function calculateFingerAngleData(frame) {
-        if (frame.hands.length > 0) {
-          for (var i = 0; i < frame.hands[0].fingers.length; i++) {
-            Leap.vec3.subtract(temporaryVector, frame.hands[0].fingers[i].tipPosition, frame.hands[0].fingers[i].carpPosition);
-            frameDataStore.fingers[i].angle = mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector);
-            if (gui.showFingerAngleData) {
-              printToScreen("finger " + i + " angle:  " + frameDataStore.fingers[i].angle);
-            }
-          }
-            // console.log(mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector));
-          // helperMarker['yellow'].position.fromArray(frame.hands[0].fingers[1].tipPosition);
-        }
+      var frameStream = frameStream(controller);
+
+      frameStream.onValue(function(value) {
+        window.frameObject = value;
+      })
+
+      var fingers = [];
+
+      for (var i = 0; i < 5; i++) {       
+        (function(i) {
+          fingers.push(frameStream.map(function(value) {return value.fingers[i]}));
+        })(i);
       }
 
-      function calculateArmAngleData(frame) {
-        if (frame.hands.length > 0) {
+      var bones = [[],[],[],[],[]];
 
-          
-          frameDataStore.handAngle = mUtil.vecAngleLinePlane(frame.hands[0].direction, Leap.vec3.fromValues(0, 1, 0));
+      // starting from tip
 
-          if (gui.showFingerAngleData) {
-            printToScreen("handangle:  " + frameDataStore.handAngle);
-          }
-        }
+      for (var i = 0; i < 5; i++) {
+        bones[i][0] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.tipPosition});
+        bones[i][1] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.dipPosition});
+        bones[i][2] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.pipPosition});
+        bones[i][3] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.mcpPosition});
+        bones[i][4] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.carpPosition});
       }
 
+      // bones[3][3].log();
 
-      function moveCube(position) {
-        console.log("position: ", position);
-        mesh.position.fromArray(position);
-        // mUtil.vec3angle();
-      }
+      var palmPosition = frameStream.filter(function(value){return value !== undefined && value.hands[0] !== undefined}).map(function(value) {return value.hands[0].palmPosition});
+
 
       var blueMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0x091DFF}));
-      var redMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFF0007}));
-      var yellowMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFFF200}));
+      // var redMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFF0007}));
+      // var yellowMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFFF200}));
       controller.plugins.boneHand.scene.add(blueMesh);
-      controller.plugins.boneHand.scene.add(redMesh);
-      controller.plugins.boneHand.scene.add(yellowMesh);
 
-      var helperMarker = {
-        blue: blueMesh,
-        red: redMesh,
-        yellow: yellowMesh
-      }
+      bones[0][2].onValue(function(value) {
+        blueMesh.position.fromArray(value);
+      })
 
-      function addMarker(style, position) {
-        helperMarker[style].position.fromArray(position);
-      }
+      // starting from thumb
+      var tipDistances = [[],[],[],[]];
 
-      function printToScreen(msg) {
-        fingerOutput = fingerOutput + "<p>" + msg + "</p>";
-      }
+      tipDistances[0] = Bacon.zipAsArray(bones[0][0], bones[1][0]).map(function(value) {
+        return Leap.vec3.distance(value[0], value[1]);
+      });
 
-      function v3asv2(vector) {
-        return [vector[0], vector[1]];
-      }
+      tipDistances[1] = Bacon.zipAsArray(bones[1][0], bones[2][0]).map(function(value) {
+        return Leap.vec3.distance(value[0], value[1]);
+      });
 
-      var helperLines = [
-        [
-          {
-            x1: 0,
-            y1: 0,
-            z1: 0,
-            x2: 0,
-            y2: 0,
-            z2: 0,
-            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
-            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
-          },
-          {
-            x1: 0,
-            y1: 0,
-            z1: 0,
-            x2: 0,
-            y2: 0,
-            z2: 0,
-            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
-            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
-          },
-          {
-            x1: 0,
-            y1: 0,
-            z1: 0,
-            x2: 0,
-            y2: 0,
-            z2: 0,
-            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
-            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
-          },
-          {
-            x1: 0,
-            y1: 0,
-            z1: 0,
-            x2: 0,
-            y2: 0,
-            z2: 0,
-            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
-            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
-          },
-          {
-            x1: 0,
-            y1: 0,
-            z1: 0,
-            x2: 0,
-            y2: 0,
-            z2: 0,
-            geometryFlat: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0x0000ff})),
-            geometryAngled: new THREE.Line(new THREE.Geometry(), new THREE.LineBasicMaterial({color: 0xFF005E}))
-          }
-        ],
-        [
-        ]
-      ]
+      tipDistances[2] = Bacon.zipAsArray(bones[2][0], bones[3][0]).map(function(value) {
+        return Leap.vec3.distance(value[0], value[1]);
+      });
 
+      tipDistances[3] = Bacon.zipAsArray(bones[3][0], bones[4][0]).map(function(value) {
+        return Leap.vec3.distance(value[0], value[1]);
+      });
 
-      function initHelperLines() {
-        for (var i = 0; i < helperLines[0].length; i++) {
-          controller.plugins.boneHand.scene.add(helperLines[0][i].geometryFlat);
-          helperLines[0][i].geometryFlat.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-          helperLines[0][i].geometryFlat.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-          controller.plugins.boneHand.scene.add(helperLines[0][i].geometryAngled);
-          helperLines[0][i].geometryAngled.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
-          helperLines[0][i].geometryAngled.geometry.vertices.push(new THREE.Vector3(0, 0, 0));
+      // frameStream.log();
+      // t
+      var trainCaseTrue = Bacon.zipAsArray(tipDistances).sampledBy(recordFrameEventStream.filter(function(value) {return value.keyCode === 84}))
+      .map(function(value) {
+        return value.map(function(val) {
+          return val / 100;
+        });
+      })
+      .map(function(value) {
+        var trainCase =  {
+          input: value,
+          output: [1]
         }
-      }
+        return trainCase;
+      });
 
-      initHelperLines();
-
-      function updateCoordinatesForHelperLines(frame) {
-        var finger;
-        for (var i = 0; i < frame.hands[0].fingers.length;  i++) {
-          finger = frame.hands[0].fingers[i];
-          // console.log(finger);
-          helperLines[0][i].x1 = finger.carpPosition[0];
-          helperLines[0][i].y1 = finger.carpPosition[1];
-          helperLines[0][i].z1 = finger.carpPosition[2];
-          helperLines[0][i].x2 = finger.tipPosition[0];
-          helperLines[0][i].y2 = finger.tipPosition[1];
-          helperLines[0][i].z2 = finger.tipPosition[2];
+      // f
+      var trainCaseFalse = Bacon.zipAsArray(tipDistances).sampledBy(recordFrameEventStream.filter(function(value) {return value.keyCode === 70}))
+      .map(function(value) {
+        return value.map(function(val) {
+          return val / 100;
+        });
+      })
+      .map(function(value) {
+        var trainCase =  {
+          input: value,
+          output: [0]
         }
-      }
+        return trainCase;
+      });
 
-      function drawHelperLines() {
-        var helperObject;
-        for (var i = 0; i < helperLines[0].length; i++) {
-          helperObject = helperLines[0][i];
-          // helperLines[0][i].geometry.vertices[new THREE.Vector3(helperObject.x1, helperObject.y1, helperObject.z1), new THREE.Vector3(helperObject.x2, helperObject.y2, helperObject.z2)];
-          helperLines[0][i].geometryFlat.geometry.vertices[0].set(helperObject.x1, helperObject.y1, helperObject.z1);
-          helperLines[0][i].geometryFlat.geometry.vertices[1].set(helperObject.x2, helperObject.y2, helperObject.z2);
-          helperLines[0][i].geometryFlat.geometry.verticesNeedUpdate = true;
 
-          // helperLines[0][i].geometryAngled.geometry.vertices[0].set(helperObject.x1, helperObject.y1, helperObject.z1);
-          // helperLines[0][i].geometryAngled.geometry.vertices[1].set(helperObject.x2, helperObject.y1, helperObject.z2);
-          // helperLines[0][i].geometryAngled.geometry.verticesNeedUpdate = true;
-        };
-      }
 
-      var angleTexts = [
-      [{
-        text: "",
-        element: null
-      },
-      {
-        text: "",
-        element: null
-      },
-      {
-        text: "",
-        element: null
-      },
-      {
-        text: "",
-        element: null
-      },
-      {
-        text: "",
-        element: null
-      }
-      ],
-      [
-      ]
-      ]
+      trainCaseTrue.merge(trainCaseFalse).onValue(function(value) {
+        window.output.push(value);
+      });
 
-      var screenPositionHelperObject;
 
-      function initAngleText() {
-        var text;
-        for (var i = 0; i < angleTexts[0].length; i++) {
-          text = angleTexts[0][i];
-          text.element = document.createElement("div");
-          text.element.style.position = "absolute";
-          text.element.style.width = 100;
-          text.element.style.height =100;
-          text.element.style.backgroundColor = "yellow";
-          text.element.style.top = 200 + "px";
-          text.element.style.right = 200 + "px";
-          text.element.innerHTML = "test";
-          document.body.appendChild(text.element);
-        }
+      var gestureCheckStream = Bacon.combineAsArray(tipDistances)
+      .map(function(value) {
+        return value.map(function(val) {
+          return val / 100;
+        })
+      })
+      .map(function(value) {
+        return net.run(value);
+      // }).log();
+      });
 
-        screenPositionHelperObject = new THREE.Mesh(new THREE.SphereGeometry(0, 0, 0), new THREE.MeshLambertMaterial({color: 0x091DFF}));
-      }
+      var mapInteractionStream = palmPosition.slidingWindow(2)
+        .filter(function(value) {
+          return value.length > 1;
+        });
 
-      // initAngleText();
 
-      function drawAngleText() {
-        var v1, v2, helperObject, tmpVector;
-        for (var i = 0; i < helperLines[0].length; i++) {
-          helperObject = helperLines[0][i];
-          v1 = [helperObject.x1, helperObject.y1, helperObject.z1];
-          v2 = [helperObject.x2, helperObject.y2, helperObject.z2];
-          angleTexts[0][i].element.innerHTML = mUtil.vec3angle(v1, v2) + "deg";
-          screenPositionHelperObject.position.fromArray([helperObject.x1, helperObject.y1, helperObject.z1]);
-          tmpVector = getScreenCoordinateForObject(screenPositionHelperObject);
-          angleTexts[0][i].element.style.left = tmpVector.x;
-          angleTexts[0][i].element.style.top = tmpVector.y;
-        }
-      }
+        var moveStream = mapInteractionStream.map(function(value) {
+          return [(value[1][0] - value[0][0]) * -2.5, (value[1][1] - value[0][1]) * 2.5];
+        })
+        .sampledBy(gestureCheckStream.filter(function(value) {
+          return value > 0.6;
+        }))
+        .onValue(function(value) {
+          moveMapByPx(value);
+        });
 
-      function getScreenCoordinateForObject(obj) {
+      var zoomStream = mapInteractionStream.map(function(value) {
+        return value[0][2] - value[1][2];
+      })
+      .sampledBy(gestureCheckStream.filter(function(value) {
+          return value > 0.6;
+      }))
+      .onValue(function(value) {
+        zoomBy(value);
+      });
+      // .log();
 
-        var vector = new THREE.Vector3();
-
-        var widthHalf = 0.5*controller.plugins.boneHand.renderer.context.canvas.width;
-        var heightHalf = 0.5*controller.plugins.boneHand.renderer.context.canvas.height;
-
-        obj.updateMatrixWorld();
-        vector.setFromMatrixPosition(obj.matrixWorld);
-        vector.project(controller.plugins.boneHand.camera);
-
-        vector.x = ( vector.x * widthHalf ) + widthHalf;
-        vector.y = - ( vector.y * heightHalf ) + heightHalf;
-
-        return {
-            x: vector.x,
-            y: vector.y
-        };
-
-      }
-
-      var handDirectionArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 100, 0x006127);
-      controller.plugins.boneHand.scene.add(handDirectionArrow);
-
-      var armDirectionArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 200, 0xFF00F7);
-      controller.plugins.boneHand.scene.add(armDirectionArrow);
-
-      var testArrow1 = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 200, 0x00FF01);
-      controller.plugins.boneHand.scene.add(testArrow1);
 
     </script>
-</html>      
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
