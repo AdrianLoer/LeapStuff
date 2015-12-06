@@ -22,6 +22,7 @@
 
 	</style>
 	<script src="../libs/jquery-2.1.4.min.js"></script>
+	<script src="../libs/socket.io.js"></script>
 	<script src="../libs/brain-0.6.3.js"></script>
 	<script src="./v3.11.2-dist/ol-debug.js"></script>
 	<script src="../libs/Bacon.js"></script>
@@ -38,9 +39,20 @@
 
 	window.output = [];
 
+	var	socket = io("http://localhost:3000");
+
+	function sendToWs(msg) {
+		socket.emit("msg", msg);
+	}
 
 
 	var recordFrameEventStream = $(window).asEventStream("keydown");
+
+
+	// e.g. used for vertical angles
+	var baseVector010 = Leap.vec3.fromValues(0, 1, 0);
+	// e.g. used for horizontal angles
+	var baseVector100 = Leap.vec3.fromValues(1, 0, 0);
 
 	var net = new brain.NeuralNetwork();
 
@@ -72,7 +84,25 @@
 		window.frameObject = value;
 	});
 
-	var handOneStream = frameStream.map(function(value) {
+	// planned to bring all streams together in here
+	var handStreams = {
+		hands: [
+		{
+			handStream: null,
+			palmPositionStream: null,
+			handAngleStream: null,
+			fingerStreams: [],
+			boneStreams: [[],[],[],[],[]],
+			// vertical angles of the fingers, based on baseVector010 
+			fingerAnglesVertical: [],
+			// horizontal angles of the fingers, based on baseVector100
+			fingerAnglesHorizontal: []
+		}
+		]
+	}
+
+	// var handOneStream = frameStream.map(function(value) {
+	handStreams.hands[0].handStream = frameStream.map(function(value) {
 		return value.hands[0];
 	})
 
@@ -81,7 +111,7 @@
 	for (var i = 0; i < 5; i++) {  
 		(function(i) {
 			// might have to change to work with 2 hands
-			fingers.push(handOneStream.filter(function(value) {return value !== undefined}).map(function(value) {return value.fingers[i]}));
+			handStreams.hands[0].fingerStreams.push(handStreams.hands[0].handStream.filter(function(value) {return value !== undefined}).map(function(value) {return value.fingers[i]}).filter(function(value){return value !== undefined}));
 		})(i);
 	}
 
@@ -90,16 +120,19 @@
       // starting from tip
 
       for (var i = 0; i < 5; i++) {
-      	bones[i][0] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.tipPosition});
-      	bones[i][1] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.dipPosition});
-      	bones[i][2] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.pipPosition});
-      	bones[i][3] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.mcpPosition});
-      	bones[i][4] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.carpPosition});
+      	// bones[i][0] = fingers[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.tipPosition});
+      	handStreams.hands[0].boneStreams[i][0] = handStreams.hands[0].fingerStreams[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.tipPosition});
+      	handStreams.hands[0].boneStreams[i][1] = handStreams.hands[0].fingerStreams[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.dipPosition});
+      	handStreams.hands[0].boneStreams[i][2] = handStreams.hands[0].fingerStreams[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.pipPosition});
+      	handStreams.hands[0].boneStreams[i][3] = handStreams.hands[0].fingerStreams[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.mcpPosition});
+      	handStreams.hands[0].boneStreams[i][4] = handStreams.hands[0].fingerStreams[i].filter(function(value) {return value !== undefined}).map(function(value) {return value.carpPosition});
       }
+
 
       // bones[3][3].log();
 
-      var palmPosition = handOneStream.filter(function(value){return value !== undefined}).map(function(value) {return value.palmPosition});
+      // var palmPosition = handOneStream.filter(function(value){return value !== undefined}).map(function(value) {return value.palmPosition});
+      handStreams.hands[0].palmPositionStream = handStreams.hands[0].handStream.filter(function(value){return value !== undefined}).map(function(value) {return value.palmPosition});
 
 
       var blueMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0x091DFF}));
@@ -107,63 +140,71 @@
       // var yellowMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFFF200}));
       controller.plugins.boneHand.scene.add(blueMesh);
 
-      palmPosition.onValue(function(value) {
+      handStreams.hands[0].palmPositionStream.onValue(function(value) {
       	blueMesh.position.fromArray(value);
       })
 
       // starting from thumb
       var tipDistances = [[],[],[],[]];
 
-      tipDistances[0] = Bacon.zipAsArray(bones[0][0], bones[1][0]).map(function(value) {
+      tipDistances[0] = Bacon.zipAsArray(handStreams.hands[0].boneStreams[0][0], handStreams.hands[0].boneStreams[1][0]).map(function(value) {
       	return Leap.vec3.distance(value[0], value[1]);
       });
 
-      tipDistances[1] = Bacon.zipAsArray(bones[1][0], bones[2][0]).map(function(value) {
+      tipDistances[1] = Bacon.zipAsArray(handStreams.hands[0].boneStreams[1][0], handStreams.hands[0].boneStreams[2][0]).map(function(value) {
       	return Leap.vec3.distance(value[0], value[1]);
       });
 
-      tipDistances[2] = Bacon.zipAsArray(bones[2][0], bones[3][0]).map(function(value) {
+      tipDistances[2] = Bacon.zipAsArray(handStreams.hands[0].boneStreams[2][0], handStreams.hands[0].boneStreams[3][0]).map(function(value) {
       	return Leap.vec3.distance(value[0], value[1]);
       });
 
-      tipDistances[3] = Bacon.zipAsArray(bones[3][0], bones[4][0]).map(function(value) {
+      tipDistances[3] = Bacon.zipAsArray(handStreams.hands[0].boneStreams[3][0], handStreams.hands[0].boneStreams[4][0]).map(function(value) {
       	return Leap.vec3.distance(value[0], value[1]);
       });
 
 
-      var armOneAngleStream = handOneStream.filter(function(value){return value !== undefined}).map(function(value) {
+      handStreams.hands[0].handAngleStream = handStreams.hands[0].handStream.filter(function(value){return value !== undefined}).map(function(value) {
     		return mUtil.vecAngleLinePlane(value.direction, Leap.vec3.fromValues(0, 1, 0));
       });
 
-      var tipAnglesToArm = [[],[],[],[],[]];
-      // tipAnglesToArm[0] = 
 
-      // Bacon.zipAsArray(handOneStream.filter(function(value){return value !== undefined}), bones[0][0], bones[0][4]).map(function(value) {
-      Bacon.zipAsArray(fingers[1].filter(function(value) {return value !== undefined}), bones[1][0], bones[1][4]).map(function(value) {
-      	// tipPosition and carpPosition of a finger
-      	Leap.vec3.subtract(temporaryVector, value[1], value[2]);
-      	// console.log(temporaryVector);
-      	// return Leap.vec3.subtract(temporaryVector, value[0], value[1])
-      	// console.log(mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector));
-      	console.log(value[0]);
-
-    		// return mUtil.vecAngleLinePlane(value[0].direction, Leap.vec3.normalize(temporaryVector);
-    		// return mUtil.vecAngleLinePlane(temporaryVector, Leap.vec3.fromValues(0, 1, 0));
-    		return mUtil.vecAngleLinePlane(value[0].bones[3].direction(), Leap.vec3.fromValues(0, 1, 0));
-      }).log()
+      // fingers[1].map(function(value) {
+      // 	return [
+      // 		mUtil.vecAngleLinePlane(value.bones[0].direction(), Leap.vec3.fromValues(1, 0, 0)),
+      // 		mUtil.vecAngleLinePlane(value.bones[1].direction(), Leap.vec3.fromValues(1, 0, 0)),
+      // 		mUtil.vecAngleLinePlane(value.bones[2].direction(), Leap.vec3.fromValues(1, 0, 0)),
+      // 		mUtil.vecAngleLinePlane(value.bones[3].direction(), Leap.vec3.fromValues(1, 0, 0))
+    		// ]
+      // }).log()
 
 
-      var temporaryVector = Leap.vec3.create();
-      var perpendicularVectorToPlane = Leap.vec3.create();
+      // returns an  array holding the angles from each finger bone to a base vector
+      // the bone closest to the wrist (the longest!) comes first, i guess its angle is identical
+      // to the handAngle
+      handStreams.hands[0].fingerAnglesVertical = [[],[],[],[],[]];
+      for (var i = 0; i < 5; i++) {
+      	handStreams.hands[0].fingerAnglesVertical[i] = handStreams.hands[0].fingerStreams[i].map(function(value) {
+	      	return [
+	      		mUtil.vecAngleLinePlane(value.bones[0].direction(), baseVector010),
+	      		mUtil.vecAngleLinePlane(value.bones[1].direction(), baseVector010),
+	      		mUtil.vecAngleLinePlane(value.bones[2].direction(), baseVector010),
+	      		mUtil.vecAngleLinePlane(value.bones[3].direction(), baseVector010)
+	    		]
+	      })
+      }
 
-      // function calculateFingerAngleData(frame) {
-    		// 	Leap.vec3.subtract(temporaryVector, frame.hands[0].fingers[i].tipPosition, frame.hands[0].fingers[i].carpPosition);
-      // 			frameDataStore.fingers[i].angle = mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector);
-      //   }
-      // }
-
-
-
+	handStreams.hands[0].fingerAnglesHorizontal = [[],[],[],[],[]];
+      for (var i = 0; i < 5; i++) {
+      	handStreams.hands[0].fingerAnglesHorizontal[i] = handStreams.hands[0].fingerStreams[i].map(function(value) {
+	      	return [
+	      		mUtil.vecAngleLinePlane(value.bones[0].direction(), baseVector100),
+	      		mUtil.vecAngleLinePlane(value.bones[1].direction(), baseVector100),
+	      		mUtil.vecAngleLinePlane(value.bones[2].direction(), baseVector100),
+	      		mUtil.vecAngleLinePlane(value.bones[3].direction(), baseVector100)
+	    		]
+	      })
+      }
 
 
 
@@ -213,8 +254,7 @@
       })
       .map(function(value) {
       	return net.run(value);
-      // }).log();
-    	});
+      });
 
 
     </script>
