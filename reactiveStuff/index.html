@@ -33,7 +33,7 @@
 	<script src="../libs/leap-plugins-0.1.11.js"></script>
 </head>
 <body>
-	<input id="output" style="position: absolute; top: 10px; left: 10px"></body>
+	<input id="gestureName" style="position: absolute; top: 10px; left: 10px; z-index: 999999"></body>
 </body>
 <script>
 
@@ -48,6 +48,9 @@
 
 	var recordFrameEventStream = $(window).asEventStream("keydown");
 
+	var gestureName = $("#gestureName").asEventStream("keyup").map(function(value) {
+		return value.target.value;
+	}).toProperty("");
 
 	// e.g. used for vertical angles
 	var baseVector010 = Leap.vec3.fromValues(0, 1, 0);
@@ -61,7 +64,7 @@
 	});
 
 
-	var controller = new Leap.Controller({enableGestures: false}).setBackground(false);
+	var controller = new Leap.Controller({enableGestures: false}).setBackground(true);
 
 	function frameStream(controller) {
 		return Bacon.fromBinder(function(sink) {
@@ -169,16 +172,6 @@
       });
 
 
-      // fingers[1].map(function(value) {
-      // 	return [
-      // 		mUtil.vecAngleLinePlane(value.bones[0].direction(), Leap.vec3.fromValues(1, 0, 0)),
-      // 		mUtil.vecAngleLinePlane(value.bones[1].direction(), Leap.vec3.fromValues(1, 0, 0)),
-      // 		mUtil.vecAngleLinePlane(value.bones[2].direction(), Leap.vec3.fromValues(1, 0, 0)),
-      // 		mUtil.vecAngleLinePlane(value.bones[3].direction(), Leap.vec3.fromValues(1, 0, 0))
-    		// ]
-      // }).log()
-
-
       // returns an  array holding the angles from each finger bone to a base vector
       // the bone closest to the wrist (the longest!) comes first, i guess its angle is identical
       // to the handAngle
@@ -255,6 +248,38 @@
       .map(function(value) {
       	return net.run(value);
       });
+
+
+
+      // creating output stream
+
+      var combinedStreams = {
+      		tipDistances: null,
+      		// not using bones or fingers stream because currently we do not want the absolute position
+      		// but rather relative distances/angles etc.
+      		// fingers: null,
+      		// bones: null,
+      		fingerAnglesVertical: null,
+      		fingerAnglesHorizontal: null
+      };
+
+      combinedStreams.tipDistances = Bacon.zipAsArray(tipDistances);
+      combinedStreams.fingerAnglesVertical = Bacon.zipAsArray(handStreams.hands[0].fingerAnglesVertical);
+      combinedStreams.fingerAnglesHorizontal = Bacon.zipAsArray(handStreams.hands[0].fingerAnglesHorizontal);
+
+      var relativeDataStream = Bacon.zipAsArray(combinedStreams.tipDistances, combinedStreams.fingerAnglesVertical, combinedStreams.fingerAnglesHorizontal, gestureName)
+		.sampledBy(recordFrameEventStream
+			// space
+			.filter(function(value) {return value.keyCode === 32})).log()
+		.onValue(function(value) {
+			console.log(value);
+      		sendToWs({
+      			gestureName: value[3],
+      			tipDistances: value[0],
+      			fingerAnglesVertical: value[1],
+      			fingerAnglesHorizontal: value[2]
+      		});
+      	})
 
 
     </script>
