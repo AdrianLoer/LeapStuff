@@ -19,7 +19,7 @@
 			height: 100%;
 			position: absolute;
 		}
-		
+
 	</style>
 	<script src="../libs/jquery-2.1.4.min.js"></script>
 	<script src="../libs/brain-0.6.3.js"></script>
@@ -33,43 +33,12 @@
 </head>
 <body>
 	<input id="output" style="position: absolute; top: 10px; left: 10px"></body>
-	<div id="map" class="map"></div>
 </body>
 <script>
 
 	window.output = [];
 
-	var map = new ol.Map({
-		target: 'map',
-		layers: [
-		new ol.layer.Tile({
-			source: new ol.source.MapQuest({layer: 'sat'})
-		})
-		],
-		view: new ol.View({
-			center: ol.proj.fromLonLat([37.41, 8.82]),
-			zoom: 4
-		})
-	});
 
-	var lastZoom = 4;
-	var pxOffset = 0;
-	function moveMapByPx(px) {
-		var currentPixel = map.getPixelFromCoordinate(map.getView().getCenter());
-		var newCoordinate = map.getCoordinateFromPixel([currentPixel[0] + px[0], currentPixel[1] + px[1]]);
-		map.getView().setCenter(newCoordinate);
-	}
-
-	function zoomBy(scale) {
-		pxOffset = pxOffset + scale;
-		var currentZoom = map.getView().getZoom();
-		if (currentZoom === undefined) {
-			currentZoom = lastZoom;
-		}
-		lastZoom = currentZoom;
-		var newZoom = currentZoom + 3 * pxOffset / 100;
-		map.getView().setZoom(newZoom);
-	}
 
 	var recordFrameEventStream = $(window).asEventStream("keydown");
 
@@ -101,13 +70,18 @@
 
 	frameStream.onValue(function(value) {
 		window.frameObject = value;
+	});
+
+	var handOneStream = frameStream.map(function(value) {
+		return value.hands[0];
 	})
 
 	var fingers = [];
 
-	for (var i = 0; i < 5; i++) {       
+	for (var i = 0; i < 5; i++) {  
 		(function(i) {
-			fingers.push(frameStream.map(function(value) {return value.fingers[i]}));
+			// might have to change to work with 2 hands
+			fingers.push(handOneStream.filter(function(value) {return value !== undefined}).map(function(value) {return value.fingers[i]}));
 		})(i);
 	}
 
@@ -125,15 +99,15 @@
 
       // bones[3][3].log();
 
-      var palmPosition = frameStream.filter(function(value){return value !== undefined && value.hands[0] !== undefined}).map(function(value) {return value.hands[0].palmPosition});
+      var palmPosition = handOneStream.filter(function(value){return value !== undefined}).map(function(value) {return value.palmPosition});
 
 
       var blueMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0x091DFF}));
       // var redMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFF0007}));
       // var yellowMesh = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), new THREE.MeshLambertMaterial({color: 0xFFF200}));
-      // controller.plugins.boneHand.scene.add(blueMesh);
+      controller.plugins.boneHand.scene.add(blueMesh);
 
-      bones[0][2].onValue(function(value) {
+      palmPosition.onValue(function(value) {
       	blueMesh.position.fromArray(value);
       })
 
@@ -155,6 +129,43 @@
       tipDistances[3] = Bacon.zipAsArray(bones[3][0], bones[4][0]).map(function(value) {
       	return Leap.vec3.distance(value[0], value[1]);
       });
+
+
+      var armOneAngleStream = handOneStream.filter(function(value){return value !== undefined}).map(function(value) {
+    		return mUtil.vecAngleLinePlane(value.direction, Leap.vec3.fromValues(0, 1, 0));
+      });
+
+      var tipAnglesToArm = [[],[],[],[],[]];
+      // tipAnglesToArm[0] = 
+
+      // Bacon.zipAsArray(handOneStream.filter(function(value){return value !== undefined}), bones[0][0], bones[0][4]).map(function(value) {
+      Bacon.zipAsArray(fingers[1].filter(function(value) {return value !== undefined}), bones[1][0], bones[1][4]).map(function(value) {
+      	// tipPosition and carpPosition of a finger
+      	Leap.vec3.subtract(temporaryVector, value[1], value[2]);
+      	// console.log(temporaryVector);
+      	// return Leap.vec3.subtract(temporaryVector, value[0], value[1])
+      	// console.log(mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector));
+      	console.log(value[0]);
+
+    		// return mUtil.vecAngleLinePlane(value[0].direction, Leap.vec3.normalize(temporaryVector);
+    		// return mUtil.vecAngleLinePlane(temporaryVector, Leap.vec3.fromValues(0, 1, 0));
+    		return mUtil.vecAngleLinePlane(value[0].bones[3].direction(), Leap.vec3.fromValues(0, 1, 0));
+      }).log()
+
+
+      var temporaryVector = Leap.vec3.create();
+      var perpendicularVectorToPlane = Leap.vec3.create();
+
+      // function calculateFingerAngleData(frame) {
+    		// 	Leap.vec3.subtract(temporaryVector, frame.hands[0].fingers[i].tipPosition, frame.hands[0].fingers[i].carpPosition);
+      // 			frameDataStore.fingers[i].angle = mUtil.vecAngleLinePlane(perpendicularVectorToPlane, temporaryVector);
+      //   }
+      // }
+
+
+
+
+
 
       // frameStream.log();
       // t
@@ -203,34 +214,7 @@
       .map(function(value) {
       	return net.run(value);
       // }).log();
-    });
-
-      var mapInteractionStream = palmPosition.slidingWindow(2)
-      .filter(function(value) {
-      	return value.length > 1;
-      });
-
-
-      var moveStream = mapInteractionStream.map(function(value) {
-      	return [(value[1][0] - value[0][0]) * -4, (value[1][1] - value[0][1]) * 4];
-      })
-      .sampledBy(gestureCheckStream.filter(function(value) {
-      	return value > 0.6;
-      }))
-      .onValue(function(value) {
-      	moveMapByPx(value);
-      });
-
-      var zoomStream = mapInteractionStream.map(function(value) {
-      	return value[0][2] - value[1][2];
-      })
-      .sampledBy(gestureCheckStream.filter(function(value) {
-      	return value > 0.6;
-      }))
-      .onValue(function(value) {
-      	zoomBy(value);
-      });
-      // .log();
+    	});
 
 
     </script>
