@@ -2,7 +2,7 @@
 
 This repo was used for various experiments with the LeapMotion device I got as part of a competition in 2015.
 
-The final but incomplete submission can be seen [here on itch.io](https://aloer.itch.io/fingerarmangles). It uses three.js to visualize calculated angles between different bones and was intended to be used as debugging/training help for more advanced gesture recognition
+The final but incomplete submission can be seen [here on itch.io](https://aloer.itch.io/fingerarmangles) *with a recorded leap motion input stream*. It uses three.js to visualize calculated angles between different bones and was intended to be used as debugging/training help for more advanced gesture recognition
 
 Afterwards I decided to play around some more and learn about functional reactive programming with BaconJS along the way.
 
